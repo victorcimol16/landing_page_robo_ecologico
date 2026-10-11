@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Robô Ecológico · TCC CIMOL · Feintec 2026</title>
+  <meta name="description" content="Robô Ecológico: protótipo de robô autônomo que identifica e coleta resíduos recicláveis no CIMOL. TCC de Victor Gabriel Kohlrausch, Curso Técnico em Informática." />
+  <meta name="theme-color" content="#0E1411" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230E1411'/%3E%3Cpath d='M8 20h16v4H8zM11 12h10v7H11z' fill='%233DDC84'/%3E%3Ccircle cx='16' cy='9' r='2' fill='%23F5C518'/%3E%3C/svg%3E" />
+
+  <!-- Fontes: Space Grotesk (títulos) e Inter (texto). display=swap evita texto invisível -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <!-- media="print" + onload: o CSS das fontes não bloqueia a primeira pintura -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" /></noscript>
+
+</head>
+<body class="is-loading">
+  <!-- Só para testes automatizados (?teste-raf): simula quadros em aba sem foco -->
+  <script>if (location.search.indexOf('teste-raf') > -1) { window.requestAnimationFrame = function (cb) { return setTimeout(function () { cb(performance.now()); }, 16); }; Object.defineProperty(document, 'hidden', { get: function () { return false; } }); }</script>
+  <a class="skip-link" href="#conteudo">Pular para o conteúdo</a>
+
+  <!-- ================= TELA DE CARREGAMENTO ================= -->
+  <div class="loader" id="loader" role="status" aria-live="polite">
+    <div class="loader__box">
+      <p class="mono loader__tag">SISTEMA · INICIALIZANDO</p>
+      <p class="loader__title">Robô Ecológico</p>
+      <div class="loader__bar" aria-hidden="true"><span id="loader-fill"></span></div>
+      <p class="mono loader__status"><span id="loader-label">carregando modelo 3D</span> <span id="loader-pct">0%</span></p>
+    </div>
+  </div>
+
+  <!-- ================= CENA 3D ÚNICA (fixa ao fundo) ================= -->
+  <!-- pointer-events: none no CSS → toques passam direto, a rolagem nunca trava -->
+  <canvas id="cena" class="cena" role="img"
+    aria-label="Modelo 3D do Robô Ecológico: chassi com duas esteiras laterais e quatro flippers articulados, braço robótico de 6 eixos com garra e sensor ultrassônico, compartimento de resíduos em cima, controlador Raspberry Pi 4 e câmera. O modelo gira e se desmonta conforme a página é rolada."></canvas>
+
+  <!-- Rótulos que acompanham as peças 3D (decorativos: o mesmo conteúdo existe em texto nas seções) -->
+  <div class="hud" id="hud" aria-hidden="true">
+    <svg class="hud__lines" id="hud-lines"></svg>
+    <div class="hud__labels" id="hud-labels"></div>
+    <div class="yolo" id="yolo"><span class="yolo__tag mono">lata · reciclável</span></div>
+    <div class="sonar mono" id="sonar"><span id="sonar-cm">—</span> cm</div>
+  </div>
+
+  <!-- Fallback sem WebGL: imagem estática (o resto da página é HTML puro) -->
+  <figure class="sem-webgl" id="sem-webgl" hidden>
+    <img loading="lazy" src="/img/robo-cad.jpg" width="1200" height="735" alt="Render do CAD do chassi do robô: esteiras laterais pretas, quatro flippers com placas laterais vermelhas e a pilha de eletrônica em acrílico azul no topo." />
+    <figcaption class="mono">Seu navegador não suporta WebGL: exibindo render estático do CAD.</figcaption>
+  </figure>
+
+  <header class="topo">
+    <a class="topo__marca mono" href="#inicio">
+      <span class="dot" aria-hidden="true"></span> ROBÔ_ECO <span class="topo__ver">v0.1 · protótipo</span>
+    </a>
+    <nav aria-label="Seções">
+      <ul class="topo__nav mono">
+        <li><a href="#problema">problema</a></li>
+        <li><a href="#robo">o robô</a></li>
+        <li><a href="#funcionamento">funcionamento</a></li>
+        <li><a href="#slam">slam</a></li>
+        <li><a href="#cronograma">cronograma</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main id="conteudo">
+
+    <!-- ===== 1. HERO ===== -->
+    <section class="hero" id="inicio" aria-labelledby="titulo">
+      <div class="hero__texto">
+        <p class="mono kicker"><span class="kicker__dot"></span> TCC · Feintec 2026 · ETE Monteiro Lobato (CIMOL)</p>
+        <!-- Aparece sozinho de 3 a 5 de novembro de 2026 (ver feintec.js) -->
+        <p class="aovivo mono" id="aovivo" hidden><span class="aovivo__led" aria-hidden="true"></span> Acontecendo agora · Feintec, 3 a 5 de novembro</p>
+        <h1 id="titulo">Robô Ecológico<span class="h1__sub">Coletando resíduos recicláveis no CIMOL</span></h1>
+        <p class="hero__lead">Um robô autônomo que identifica resíduos recicláveis descartados no lugar errado dentro da escola, recolhe com um braço robótico, guarda num compartimento em cima do robô, mapeia o ambiente e volta sozinho à base.</p>
+        <p class="status mono"><span class="status__led" aria-hidden="true"></span> Status: protótipo em desenvolvimento</p>
+        <button class="btn-giro mono" id="btn-giro" type="button" hidden>Mover o robô com o giroscópio</button>
+      </div>
+      <div class="hero__specs mono" aria-hidden="true">
+        <span>RPI4 · 4GB</span><span>YOLO</span><span>SLAM</span><span>RMRC</span>
+      </div>
+      <a class="rolar mono" href="#problema">role para baixo <span class="rolar__seta" aria-hidden="true"></span></a>
+    </section>
+
+    <!-- ===== 2. O PROBLEMA ===== -->
+    <section class="problema" id="problema" aria-labelledby="problema-t">
+      <div class="sec-head">
+        <p class="mono sec-num">01 / o problema</p>
+        <h2 id="problema-t">Lixo reciclável no chão da escola</h2>
+        <p>Resíduos que poderiam ser reciclados acabam descartados no lugar errado pelos corredores e pátios. Para entender o problema, aplicamos um questionário à comunidade escolar.</p>
+      </div>
+
+      <div class="numeros" role="list">
+        <div class="numero" role="listitem">
+          <p class="numero__v"><span class="contador" data-alvo="58">58</span></p>
+          <p class="numero__l">pessoas responderam ao questionário</p>
+        </div>
+        <div class="numero" role="listitem">
+          <p class="numero__v"><span class="contador" data-alvo="96">96</span><small>%</small></p>
+          <p class="numero__l">veem a tecnologia como aliada no descarte correto</p>
+        </div>
+        <div class="numero" role="listitem">
+          <p class="numero__v"><span class="contador" data-alvo="95">95</span><small>%</small></p>
+          <p class="numero__l">aprovam o conceito do robô</p>
+        </div>
+      </div>
+
+      <div class="itens">
+        <p class="mono itens__t">itens mais descartados incorretamente</p>
+        <ul class="itens__lista">
+          <li class="item">
+            <svg viewBox="0 0 64 64" aria-hidden="true"><path d="M18 10h28l-3 6 3 6-3 26 3 6H18l3-6-3-26 3-6z"/><path d="M24 30h16M24 36h10"/></svg>
+            <span>Embalagens de salgadinho</span>
+          </li>
+          <li class="item">
+            <svg viewBox="0 0 64 64" aria-hidden="true"><path d="M16 8h24l10 10v38H16z"/><path d="M40 8v10h10M22 28h22M22 35h22M22 42h14"/></svg>
+            <span>Papel</span>
+          </li>
+          <li class="item">
+            <svg viewBox="0 0 64 64" aria-hidden="true"><path d="M27 4h10v6H27zM27 10c0 6-7 8-7 16v30h24V26c0-8-7-10-7-16"/><path d="M20 32h24M20 44h24"/></svg>
+            <span>Garrafas PET</span>
+          </li>
+          <li class="item">
+            <svg viewBox="0 0 64 64" aria-hidden="true"><ellipse cx="32" cy="12" rx="13" ry="4"/><path d="M19 12v40c0 2 6 4 13 4s13-2 13-4V12"/><path d="M28 11h8"/></svg>
+            <span>Latas</span>
+          </li>
+        </ul>
+      </div>
+
+      <div class="causa">
+        <p class="mono causa__t">// causa mais apontada</p>
+        <p class="causa__v">Falta de consciência ambiental.</p>
+        <p class="causa__n">A direção da escola validou o problema e ofereceu espaço para os testes piloto.</p>
+      </div>
+    </section>
+
+    <!-- ===== 3. POR DENTRO DO ROBÔ (vista explodida) ===== -->
+    <section class="robo" id="robo" aria-labelledby="robo-t">
+      <div class="robo__stage">
+        <div class="robo__painel">
+          <p class="mono sec-num">02 / por dentro</p>
+          <h2 id="robo-t">Vista explodida</h2>
+          <p>Role para desmontar o robô peça por peça. O chassi com esteiras e flippers é inspirado na categoria <abbr title="Rapidly Manufactured Robot Challenge">RMRC</abbr> da RoboCup Rescue.</p>
+        </div>
+      </div>
+      <div class="robo__lista">
+        <ol class="pecas">
+          <li><b>Raspberry Pi 4 (4 GB)</b> controlador: roda a visão, a navegação e a lógica de coleta.</li>
+          <li><b>Câmera + YOLO</b> modelo compacto de detecção que encontra os resíduos na imagem.</li>
+          <li><b>Sensor ultrassônico</b> no punho da garra: mede a distância até o objeto e valida o acionamento.</li>
+          <li><b>Braço 6 DOF + garra</b> seis articulações posicionam a garra para pegar o resíduo no chão.</li>
+          <li><b>Compartimento</b> caixa em cima do robô onde os resíduos coletados são depositados.</li>
+          <li><b>Esteiras</b> tração contínua para o robô se deslocar pelos corredores.</li>
+          <li><b>Flippers</b> quatro braços articulados que ajudam a vencer obstáculos.</li>
+        </ol>
+        <p class="nota mono">* Braço, garra, compartimento, câmera, sensor e Raspberry Pi aparecem como representação simplificada: ainda não estão modelados no CAD.</p>
+      </div>
+    </section>
+
+    <!-- ===== 4. COMO FUNCIONA (seção pinada com 4 etapas) ===== -->
+    <section class="func" id="funcionamento" aria-labelledby="func-t">
+      <div class="func__painel">
+        <p class="mono sec-num">03 / funcionamento</p>
+        <h2 id="func-t">Do chão até a base</h2>
+        <ol class="etapas" id="etapas">
+          <li class="etapa is-ativa" data-etapa="0">
+            <span class="etapa__n mono">01</span>
+            <div><h3>Detectar</h3><p>A câmera captura o ambiente e o modelo YOLO marca o resíduo com uma caixa delimitadora.</p></div>
+          </li>
+          <li class="etapa" data-etapa="1">
+            <span class="etapa__n mono">02</span>
+            <div><h3>Aproximar</h3><p>O robô avança até o objeto enquanto o sensor ultrassônico acompanha a distância.</p></div>
+          </li>
+          <li class="etapa" data-etapa="2">
+            <span class="etapa__n mono">03</span>
+            <div><h3>Coletar</h3><p>Com a distância validada, o braço desce sobre o resíduo e a garra fecha.</p></div>
+          </li>
+          <li class="etapa" data-etapa="3">
+            <span class="etapa__n mono">04</span>
+            <div><h3>Depositar</h3><p>A base do braço gira e a garra solta o resíduo no compartimento em cima do robô.</p></div>
+          </li>
+          <li class="etapa" data-etapa="4">
+            <span class="etapa__n mono">05</span>
+            <div><h3>Retornar à base</h3><p>Usando o mapa construído, o robô volta sozinho ao ponto de descarte.</p></div>
+          </li>
+        </ol>
+        <p class="nota mono">Simulação ilustrativa da lógica planejada. Distâncias exibidas são calculadas na cena 3D, não são medições reais.</p>
+      </div>
+    </section>
+
+    <!-- ===== 5. MAPEAMENTO SLAM ===== -->
+    <section class="slam" id="slam" aria-labelledby="slam-t">
+      <div class="slam__texto">
+        <p class="mono sec-num">04 / mapeamento</p>
+        <h2 id="slam-t">Por que SLAM?</h2>
+        <p>O layout da escola muda com frequência: mesas, bancos e lixeiras trocam de lugar. Com <abbr title="Simultaneous Localization and Mapping">SLAM</abbr> (mapeamento e localização simultâneos), o robô constrói o mapa enquanto anda e descobre onde está nele.</p>
+      </div>
+      <div class="slam__mapa">
+        <p class="slam__fase mono" id="slam-fase" aria-live="polite">fase 1 · explorando o corredor</p>
+        <canvas id="slam-canvas" width="720" height="440" role="img"
+          aria-label="Simulação vista de cima: um robô percorre um corredor da escola e o mapa em grade é revelado aos poucos, com o rastro do caminho. Depois, um obstáculo muda de lugar e o mapa é atualizado."></canvas>
+        <div class="slam__legenda mono" aria-hidden="true">
+          <span><i class="lg lg--livre"></i>livre</span>
+          <span><i class="lg lg--ocupado"></i>obstáculo</span>
+          <span><i class="lg lg--novo"></i>atualizado</span>
+          <span><i class="lg lg--rastro"></i>rastro</span>
+        </div>
+        <label class="slam__ctrl mono">
+          <span>linha do tempo da simulação</span>
+          <input type="range" id="slam-range" min="0" max="1000" value="0" />
+        </label>
+      </div>
+    </section>
+
+    <!-- ===== 6. IMPACTO ===== -->
+    <section class="impacto" id="impacto" aria-labelledby="impacto-t">
+      <p class="mono sec-num">05 / impacto</p>
+      <h2 id="impacto-t">A escola como laboratório</h2>
+      <div class="impacto__grid">
+        <article>
+          <h3>Ambiental</h3>
+          <p>Recolher latas, garrafas PET, papel e embalagens que ficaram no chão aumenta a chance de esses materiais chegarem à reciclagem em vez de virarem lixo comum.</p>
+        </article>
+        <article>
+          <h3>Educação</h3>
+          <p>A principal causa apontada pela comunidade foi a falta de consciência ambiental. Ver um robô coletando o que foi jogado fora chama atenção para o descarte correto.</p>
+        </article>
+        <article>
+          <h3>Tecnologia na prática</h3>
+          <p>Visão computacional, robótica móvel e mapeamento aplicados a um problema real do próprio CIMOL, com a escola servindo de ambiente de testes piloto.</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- ===== 7. LINHA DO TEMPO ===== -->
+    <section class="cronograma" id="cronograma" aria-labelledby="crono-t">
+      <p class="mono sec-num">06 / cronograma</p>
+      <h2 id="crono-t">Linha do tempo</h2>
+      <ol class="tl">
+        <li class="tl__item tl--ok">
+          <span class="tl__st mono">concluída</span>
+          <h3>Pré-banca</h3>
+          <p>Apresentação da proposta e da pesquisa com a comunidade escolar.</p>
+        </li>
+        <li class="tl__item tl--now">
+          <span class="tl__st mono">em andamento</span>
+          <h3>Montagem física</h3>
+          <p>Construção do protótipo: chassi, eletrônica, braço com garra, compartimento e integração dos sensores.</p>
+        </li>
+        <li class="tl__item" id="tl-feintec">
+          <span class="tl__st mono" id="tl-feintec-st">3 a 5 de novembro de 2026</span>
+          <h3>Feintec</h3>
+          <p>Apresentação do projeto na feira de tecnologia.</p>
+        </li>
+      </ol>
+    </section>
+  </main>
+
+  <!-- ===== 8. RODAPÉ ===== -->
+  <footer class="rodape" id="rodape">
+    <div class="rodape__grid">
+      <div>
+        <p class="mono sec-num">créditos</p>
+        <p class="rodape__titulo">Robô Ecológico: Coletando Resíduos Recicláveis no CIMOL</p>
+        <dl class="ficha">
+          <dt class="mono">autor</dt><dd>Victor Gabriel Kohlrausch</dd>
+          <dt class="mono">orientador</dt><dd>Prof. Cândido Luciano de Farias</dd>
+          <dt class="mono">curso</dt><dd>Técnico em Informática</dd>
+          <dt class="mono">escola</dt><dd>ETE Monteiro Lobato (CIMOL), Taquara/RS</dd>
+          <dt class="mono">código</dt><dd><a href="https://github.com/victorcimol16/PROJECT_ROBOT_ECOLOGY" target="_blank" rel="noopener">github.com/victorcimol16/PROJECT_ROBOT_ECOLOGY</a></dd>
+        </dl>
+      </div>
+      <div class="qr">
+        <div class="qr__img" id="qr" role="img" aria-label="QR code com o endereço desta página"></div>
+        <p class="mono qr__t">aponte a câmera<br />para abrir esta página</p>
+      </div>
+    </div>
+    <p class="mono rodape__fim">Feintec · 3 a 5 de novembro de 2026 · protótipo em desenvolvimento</p>
+  </footer>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
