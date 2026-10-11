@@ -22,7 +22,7 @@
 }
 
 *, *::before, *::after { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; }
+html { -webkit-text-size-adjust: 100%; overflow-x: hidden; overflow-x: clip; }
 html.lenis, html.lenis body { height: auto; }
 .lenis.lenis-smooth { scroll-behavior: auto !important; }
 
@@ -40,6 +40,7 @@ body {
   font-size: 1rem;
   line-height: 1.6;
   overflow-x: hidden;
+  overflow-x: clip; /* nada passa da largura da tela (evita zoom out no celular) */
 }
 body.is-loading { overflow: hidden; }
 
@@ -86,7 +87,7 @@ mark.preencher {
 /* ===================== CENA 3D + HUD ===================== */
 .cena {
   position: fixed; inset: 0; z-index: 0;
-  width: 100vw; height: 100vh; height: 100lvh;
+  width: 100%; height: 100vh; height: 100lvh;
   display: block;
   pointer-events: none;   /* toque/arraste nunca ficam presos no canvas */
   transition: opacity 0.2s linear;
@@ -319,10 +320,11 @@ h1 { font-size: clamp(2.6rem, 12vw, 6.2rem); font-weight: 700; }
 /* ===================== 8. RODAPÉ ===================== */
 .rodape { position: relative; z-index: 2; background: var(--bg-2); border-top: 1px solid var(--linha); padding: 3.5rem var(--gutter) 2rem; }
 .rodape__grid { display: grid; gap: 2.5rem; }
+.rodape__grid > * { min-width: 0; } /* itens do grid podem encolher */
 .rodape__titulo { font-family: var(--f-titulo); font-size: 1.5rem; font-weight: 600; line-height: 1.2; max-width: 26ch; }
 .ficha { display: grid; grid-template-columns: max-content 1fr; gap: 0.5rem 1.2rem; margin: 1.5rem 0 0; }
 .ficha dt { color: var(--verde); padding-top: 0.2rem; }
-.ficha dd { margin: 0; }
+.ficha dd { margin: 0; min-width: 0; overflow-wrap: anywhere; } /* URL longa quebra em vez de vazar */
 .qr { display: flex; align-items: center; gap: 1rem; }
 .qr__img { width: 132px; height: 132px; padding: 10px; background: #fff; flex: none; }
 .qr__img svg { width: 100%; height: 100%; display: block; }
